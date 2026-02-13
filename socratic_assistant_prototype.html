@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Socratic Verification Assistant</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+        
+        .header p {
+            font-size: 16px;
+            opacity: 0.95;
+        }
+        
+        .phase-indicator {
+            background: rgba(255,255,255,0.2);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 16px 24px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .phase-step {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: white;
+            font-size: 14px;
+            font-weight: 500;
+            opacity: 0.6;
+            transition: all 0.3s;
+        }
+        
+        .phase-step.active {
+            opacity: 1;
+            transform: scale(1.1);
+        }
+        
+        .phase-step.completed {
+            opacity: 0.8;
+        }
+        
+        .phase-number {
+            width: 32px;
+            height: 32px;
+            background: rgba(255,255,255,0.3);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+        }
+        
+        .phase-step.active .phase-number {
+            background: white;
+            color: #667eea;
+        }
+        
+        .phase-step.completed .phase-number {
+            background: #4CAF50;
+        }
+        
+        .main-card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
+            min-height: 500px;
+        }
+        
+        .card-header {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            padding: 24px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .card-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+        }
+        
+        .card-subtitle {
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .card-body {
+            padding: 32px;
+        }
+        
+        /* Phase 1: Initial Answer */
+        .llm-answer {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 24px;
+            line-height: 1.6;
+        }
+        
+        .accept-button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 32px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: 100%;
+        }
+        
+        .accept-button:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        /* Phase 2: Socratic Questions */
+        .question-card {
+            background: #fff;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            transition: all 0.3s;
+        }
+        
+        .question-card.active {
+            border-color: #667eea;
+            box-shadow: 0 4px 16px rgba(102, 126, 234, 0.2);
+        }
+        
+        .question-number {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 28px;
+            font-size: 14px;
+            font-weight: 700;
+            margin-right: 12px;
+        }
+        
+        .question-text {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 16px;
+        }
+        
+        .answer-input {
+            width: 100%;
+            min-height: 80px;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            resize: vertical;
+            transition: all 0.3s;
+        }
+        
+        .answer-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .answer-feedback {
+            margin-top: 12px;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            display: none;
+        }
+        
+        .answer-feedback.correct {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: block;
+        }
+        
+        .answer-feedback.incorrect {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            display: block;
+        }
+        
+        .answer-feedback.partial {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+            display: block;
+        }
+        
+        .submit-answer-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 12px;
+            transition: all 0.3s;
+        }
+        
+        .submit-answer-btn:hover {
+            background: #5568d3;
+        }
+        
+        .submit-answer-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .hint-button {
+            background: transparent;
+            color: #667eea;
+            border: 2px solid #667eea;
+            padding: 8px 20px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-left: 12px;
+            transition: all 0.3s;
+        }
+        
+        .hint-button:hover {
+            background: #667eea;
+            color: white;
+        }
+        
+        .hint-box {
+            margin-top: 12px;
+            padding: 12px;
+            background: #e8f4fd;
+            border-left: 3px solid #2196F3;
+            border-radius: 4px;
+            font-size: 13px;
+            display: none;
+        }
+        
+        .hint-box.visible {
+            display: block;
+            animation: slideDown 0.3s ease;
+        }
+        
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Phase 3: Gap Analysis */
+        .gap-section {
+            margin-bottom: 24px;
+        }
+        
+        .gap-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .gap-icon {
+            font-size: 24px;
+        }
+        
+        .gap-item {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 16px;
+            border-radius: 6px;
+            margin-bottom: 12px;
+        }
+        
+        .gap-item-title {
+            font-weight: 600;
+            color: #856404;
+            margin-bottom: 8px;
+        }
+        
+        .gap-item-text {
+            font-size: 14px;
+            color: #856404;
+            line-height: 1.5;
+        }
+        
+        .source-reference {
+            display: inline-block;
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+        
+        .confidence-meter {
+            background: #f5f5f5;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 24px;
+        }
+        
+        .confidence-label {
+            font-size: 14px;
+            font-weight: 600;
+            color: #666;
+            margin-bottom: 12px;
+        }
+        
+        .confidence-bar-container {
+            width: 100%;
+            height: 24px;
+            background: #e0e0e0;
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .confidence-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #f44336 0%, #ff9800 50%, #4CAF50 100%);
+            border-radius: 12px;
+            transition: width 1s ease;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 12px;
+        }
+        
+        .confidence-percentage {
+            color: white;
+            font-weight: 700;
+            font-size: 14px;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+        }
+        
+        .next-phase-btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 14px 32px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 24px;
+            transition: all 0.3s;
+        }
+        
+        .next-phase-btn:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+        }
+        
+        .completion-message {
+            text-align: center;
+            padding: 40px;
+        }
+        
+        .completion-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+        }
+        
+        .completion-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 12px;
+        }
+        
+        .completion-text {
+            font-size: 16px;
+            color: #666;
+            line-height: 1.6;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        
+        .final-answer-box {
+            background: #f8f9fa;
+            border: 2px solid #4CAF50;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 24px;
+        }
+        
+        .final-answer-label {
+            font-size: 14px;
+            font-weight: 600;
+            color: #4CAF50;
+            margin-bottom: 12px;
+        }
+        
+        .final-answer-text {
+            font-size: 15px;
+            line-height: 1.6;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Socratic Verification Assistant</h1>
+            <p>Don't just accept the answer, prove you understand it</p>
+        </div>
+        
+        <div class="phase-indicator">
+            <div class="phase-step active" id="phase1-indicator">
+                <div class="phase-number">1</div>
+                <span>Receive Answer</span>
+            </div>
+            <div class="phase-step" id="phase2-indicator">
+                <div class="phase-number">2</div>
+                <span>Answer Questions</span>
+            </div>
+            <div class="phase-step" id="phase3-indicator">
+                <div class="phase-number">3</div>
+                <span>Review Gaps</span>
+            </div>
+        </div>
+        
+        <div class="main-card">
+            <div class="card-header">
+                <div class="card-title" id="phase-title">Phase 1: Initial Answer</div>
+                <div class="card-subtitle" id="phase-subtitle">The LLM has provided an answer. Ready to verify you understand it?</div>
+            </div>
+            
+            <div class="card-body">
+                <!-- Phase 1: Initial Answer -->
+                <div id="phase1-content">
+                    <div class="llm-answer">
+                        <strong style="color: #667eea;">LLM Answer:</strong><br><br>
+                        To answer "who spilled the coffee," the reader has to resolve pronominal anaphora: "He spilled black coffee" contains a pronoun whose referent must be determined. The reader builds a discourse model with agents (Ditto, Will, Eleanor) and assigns topic status based on recency and salience, making Will the most likely antecedent for "he."
+                    </div>
+                    
+                    <button class="accept-button" onclick="startQuestions()">
+                        I'm ready to verify my understanding →
+                    </button>
+                </div>
+                
+                <!-- Phase 2: Socratic Questions -->
+                <div id="phase2-content" style="display: none;">
+                    <div class="question-card active" id="q1-card">
+                        <div class="question-text">
+                            <span class="question-number">1</span>
+                            What is "pronominal anaphora" and why is it relevant to this example?
+                        </div>
+                        <textarea class="answer-input" id="q1-input" placeholder="Type your answer here..."></textarea>
+                        <div class="answer-feedback" id="q1-feedback"></div>
+                        <button class="submit-answer-btn" onclick="checkAnswer(1)">Submit Answer</button>
+                        <button class="hint-button" onclick="toggleHint(1)">Need a hint?</button>
+                        <div class="hint-box" id="hint1">
+                            <strong>Hint:</strong> Think about what happens when you see a pronoun like "he" in a sentence. What does your brain need to figure out?
+                        </div>
+                    </div>
+                    
+                    <div class="question-card" id="q2-card" style="opacity: 0.5; pointer-events: none;">
+                        <div class="question-text">
+                            <span class="question-number">2</span>
+                            The answer mentions "recency and salience." Can you explain what these terms mean and give an example from the passage?
+                        </div>
+                        <textarea class="answer-input" id="q2-input" placeholder="Type your answer here..."></textarea>
+                        <div class="answer-feedback" id="q2-feedback"></div>
+                        <button class="submit-answer-btn" onclick="checkAnswer(2)">Submit Answer</button>
+                        <button class="hint-button" onclick="toggleHint(2)">Need a hint?</button>
+                        <div class="hint-box" id="hint2">
+                            <strong>Hint:</strong> Which character was mentioned most recently before "He spilled coffee"? That's recency. Salience is about importance or prominence.
+                        </div>
+                    </div>
+                    
+                    <div class="question-card" id="q3-card" style="opacity: 0.5; pointer-events: none;">
+                        <div class="question-text">
+                            <span class="question-number">3</span>
+                            According to Chapter 9, what would happen if Eleanor had been mentioned most recently instead of Will? Would "he" still refer to Will?
+                        </div>
+                        <textarea class="answer-input" id="q3-input" placeholder="Type your answer here..."></textarea>
+                        <div class="answer-feedback" id="q3-feedback"></div>
+                        <button class="submit-answer-btn" onclick="checkAnswer(3)">Submit Answer</button>
+                        <button class="hint-button" onclick="toggleHint(3)">Need a hint?</button>
+                        <div class="hint-box" id="hint3">
+                            <strong>Hint:</strong> Consider both gender and recency. What constraints does the pronoun "he" place on possible antecedents?
+                        </div>
+                    </div>
+                    
+                    <button class="next-phase-btn" id="proceed-to-gaps" style="display: none;" onclick="showGapAnalysis()">
+                        Continue to Gap Analysis →
+                    </button>
+                </div>
+                
+                <!-- Phase 3: Gap Analysis -->
+                <div id="phase3-content" style="display: none;">
+                    <div class="gap-section">
+                        <div class="gap-title">
+                            <span class="gap-icon"></span>
+                            Concepts You Missed
+                        </div>
+                        
+                        <div class="gap-item">
+                            <div class="gap-item-title">Centering Theory</div>
+                            <div class="gap-item-text">
+                                The LLM's answer mentioned "topic status" but you didn't explain centering theory. Chapter 9 discusses how backward-looking centers help track discourse topics.
+                                <span class="source-reference">Ch 9, p.254-255</span>
+                            </div>
+                        </div>
+                        
+                        <div class="gap-item">
+                            <div class="gap-item-title">Discourse Model vs. Surface Text</div>
+                            <div class="gap-item-text">
+                                You focused on surface features (recency, gender) but didn't mention how readers build mental models of situations that go beyond the literal text.
+                                <span class="source-reference">Ch 9, p.246</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="gap-section">
+                        <div class="gap-title">
+                            <span class="gap-icon"></span>
+                            What You Got Right
+                        </div>
+                        
+                        <div style="background: #d4edda; border-left: 4px solid #28a745; padding: 16px; border-radius: 6px; margin-bottom: 12px;">
+                            <div style="font-weight: 600; color: #155724; margin-bottom: 8px;">Pronoun Resolution Process</div>
+                            <div style="font-size: 14px; color: #155724; line-height: 1.5;">
+                                You correctly explained that readers must identify the referent of "he" by considering recency and grammatical constraints.
+                            </div>
+                        </div>
+                        
+                        <div style="background: #d4edda; border-left: 4px solid #28a745; padding: 16px; border-radius: 6px;">
+                            <div style="font-weight: 600; color: #155724; margin-bottom: 8px;">Role of Salience</div>
+                            <div style="font-size: 14px; color: #155724; line-height: 1.5;">
+                                You identified that Will is salient as the most recently mentioned male character.
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="confidence-meter">
+                        <div class="confidence-label">Your Understanding Confidence Level</div>
+                        <div class="confidence-bar-container">
+                            <div class="confidence-bar" style="width: 72%;">
+                                <span class="confidence-percentage">72%</span>
+                            </div>
+                        </div>
+                        <div style="margin-top: 12px; font-size: 13px; color: #666;">
+                            Based on your answers, you have a good understanding but missed some deeper concepts. Review the gaps above before finalizing your answer.
+                        </div>
+                    </div>
+                    
+                    <div class="final-answer-box">
+                        <div class="final-answer-label">Your Revised Answer (after learning from gaps)</div>
+                        <div class="final-answer-text">
+                            To answer "who spilled the coffee," the reader resolves pronominal anaphora by identifying the antecedent of "he." The reader builds a discourse model tracking Ditto, Will, and Eleanor. Using principles from centering theory, Will becomes the backward-looking center due to recency (most recently mentioned) and salience (grammatically prominent). The gender constraint ("he" = male) also eliminates Eleanor. Thus, "he" → Will.
+                        </div>
+                    </div>
+                    
+                    <button class="next-phase-btn" onclick="complete()">
+                        I understand now, Finalize Answer
+                    </button>
+                </div>
+                
+                <!-- Completion -->
+                <div id="completion-content" style="display: none;">
+                    <div class="completion-message">
+                        <div class="completion-icon"></div>
+                        <div class="completion-title">Verification Complete!</div>
+                        <div class="completion-text">
+                            You've actively engaged with the material and identified gaps in your understanding. Your final answer now reflects genuine comprehension, not just passive acceptance of the LLM's response.
+                            <br><br>
+                            <strong>Next steps:</strong> Apply this same process to the remaining questions.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let questionStates = [false, false, false];
+        
+        function startQuestions() {
+            document.getElementById('phase1-content').style.display = 'none';
+            document.getElementById('phase2-content').style.display = 'block';
+            
+            document.getElementById('phase1-indicator').classList.remove('active');
+            document.getElementById('phase1-indicator').classList.add('completed');
+            document.getElementById('phase2-indicator').classList.add('active');
+            
+            document.getElementById('phase-title').textContent = 'Phase 2: Socratic Questioning';
+            document.getElementById('phase-subtitle').textContent = 'Answer these questions to prove you understand the concepts';
+        }
+        
+        function checkAnswer(questionNum) {
+            const input = document.getElementById(`q${questionNum}-input`).value.trim().toLowerCase();
+            const feedback = document.getElementById(`q${questionNum}-feedback`);
+            
+            let isCorrect = false;
+            let feedbackText = '';
+            let feedbackClass = '';
+            
+            if (questionNum === 1) {
+                if (input.includes('pronoun') && input.includes('refer')) {
+                    isCorrect = true;
+                    feedbackText = 'Correct! Pronominal anaphora is when a pronoun refers back to something mentioned earlier. It\'s relevant because "he" must refer to either Ditto, Will, or Eleanor.';
+                    feedbackClass = 'correct';
+                } else if (input.length > 20) {
+                    feedbackText = 'Partially correct, but you should explicitly mention that it\'s about pronouns referring to previously mentioned entities. Try again!';
+                    feedbackClass = 'partial';
+                } else {
+                    feedbackText = 'Not quite. Think about what "anaphora" means in the context of pronouns. Use the hint if you\'re stuck!';
+                    feedbackClass = 'incorrect';
+                }
+            } else if (questionNum === 2) {
+                if ((input.includes('recent') || input.includes('will')) && input.includes('salient')) {
+                    isCorrect = true;
+                    feedbackText = 'Excellent! Recency means Will was mentioned most recently. Salience means he\'s prominent/important in the discourse context.';
+                    feedbackClass = 'correct';
+                } else if (input.length > 20) {
+                    feedbackText = 'You\'re on the right track, but be more specific about how these concepts apply to this example.';
+                    feedbackClass = 'partial';
+                } else {
+                    feedbackText = 'Try explaining each term separately and then showing where they appear in the passage.';
+                    feedbackClass = 'incorrect';
+                }
+            } else if (questionNum === 3) {
+                if (input.includes('still') && input.includes('will') || input.includes('gender') || input.includes('male')) {
+                    isCorrect = true;
+                    feedbackText = 'Perfect! Even if Eleanor were most recent, "he" still requires a male antecedent, so it would still refer to Will (the most recent male).';
+                    feedbackClass = 'correct';
+                } else if (input.length > 20) {
+                    feedbackText = 'Consider the grammatical constraints that pronouns impose. What gender is "he"?';
+                    feedbackClass = 'partial';
+                } else {
+                    feedbackText = 'Think about bothrecency AND gender constraints on pronoun resolution.';
+                    feedbackClass = 'incorrect';
+                }
+            }
+            
+            feedback.textContent = feedbackText;
+            feedback.className = `answer-feedback ${feedbackClass}`;
+            
+            if (isCorrect) {
+                questionStates[questionNum - 1] = true;
+                unlockNextQuestion(questionNum);
+            }
+        }
+        
+        function unlockNextQuestion(currentNum) {
+            if (currentNum < 3) {
+                const nextCard = document.getElementById(`q${currentNum + 1}-card`);
+                nextCard.style.opacity = '1';
+                nextCard.style.pointerEvents = 'auto';
+                nextCard.classList.add('active');
+                
+                const currentCard = document.getElementById(`q${currentNum}-card`);
+                currentCard.classList.remove('active');
+                
+                // Scroll to next question
+                nextCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            } else {
+                // All questions answered
+                document.getElementById('proceed-to-gaps').style.display = 'block';
+                document.getElementById('proceed-to-gaps').scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+        
+        function toggleHint(questionNum) {
+            const hint = document.getElementById(`hint${questionNum}`);
+            hint.classList.toggle('visible');
+        }
+        
+        function showGapAnalysis() {
+            document.getElementById('phase2-content').style.display = 'none';
+            document.getElementById('phase3-content').style.display = 'block';
+            
+            document.getElementById('phase2-indicator').classList.remove('active');
+            document.getElementById('phase2-indicator').classList.add('completed');
+            document.getElementById('phase3-indicator').classList.add('active');
+            
+            document.getElementById('phase-title').textContent = 'Phase 3: Gap Analysis';
+            document.getElementById('phase-subtitle').textContent = 'Here\'s what you understood well, and what you missed';
+            
+            // Scroll to top
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        
+        function complete() {
+            document.getElementById('phase3-content').style.display = 'none';
+            document.getElementById('completion-content').style.display = 'block';
+            
+            document.getElementById('phase3-indicator').classList.remove('active');
+            document.getElementById('phase3-indicator').classList.add('completed');
+            
+            document.getElementById('phase-title').textContent = 'Verification Complete';
+            document.getElementById('phase-subtitle').textContent = 'You\'ve proven your understanding';
+            
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    </script>
+</body>
+</html>
